@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Job Scheduling with Johnson's Algorithm</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f9f9f9;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #ffffff;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        input[type="number"] {
+            width: 100%;
+            padding: 5px;
+            box-sizing: border-box;
+        }
+        button {
+            margin-top: 15px;
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+    </style>
+    <script>
+        function generateTable() {
+            const numFields = document.getElementById('numFields').value;
+            const tableContainer = document.getElementById('tableContainer');
+            const submitButton = document.getElementById('submitButton');
+
+            // Clear existing table
+            tableContainer.innerHTML = '';
+
+            // Create a new table element
+            const table = document.createElement('table');
+            const headerRow = document.createElement('tr');
+            
+            // Create table headers
+            headerRow.innerHTML = `
+                <th>Job Number</th>
+                <th>Time on Machine A</th>
+                <th>Time on Machine B</th>
+            `;
+            table.appendChild(headerRow);
+
+            // Generate table rows with input fields
+            for (let i = 0; i < numFields; i++) {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>Job ${i + 1}</td>
+                    <td><input type="number" id="job${i}MachineA" placeholder="Machine A time" required></td>
+                    <td><input type="number" id="job${i}MachineB" placeholder="Machine B time" required></td>
+                `;
+                table.appendChild(row);
+            }
+
+            // Append the table to the container
+            tableContainer.appendChild(table);
+
+            // Show the submit button
+            submitButton.style.display = 'block';
+        }
+
+        function handleFormSubmit(event) {
+            event.preventDefault();
+            const numFields = document.getElementById('numFields').value;
+            let jobTimes = [];
+            let totalMachineATime = 0;
+            let totalMachineBTime = 0;
+
+            for (let i = 0; i < numFields; i++) {
+                const timeA = parseInt(document.getElementById(`job${i}MachineA`).value);
+                const timeB = parseInt(document.getElementById(`job${i}MachineB`).value);
+                jobTimes.push({ job: i + 1, machineA: timeA, machineB: timeB });
+                totalMachineATime += timeA;
+                totalMachineBTime += timeB;
+            }
+
+            const sequence = johnsonAlgorithm(jobTimes);
+            const { totalElapsedTime, machineAIdleTime, machineBIdleTime } = calculateTimes(sequence);
+            const machineAEfficiency = ((totalMachineATime / totalElapsedTime) * 100).toFixed(2);
+            const machineBEfficiency = ((totalMachineBTime / totalElapsedTime) * 100).toFixed(2);
+
+            displayResult(sequence, totalElapsedTime, machineAIdleTime, machineBIdleTime, machineAEfficiency, machineBEfficiency);
+        }
+
+        function johnsonAlgorithm(jobTimes) {
+            let left = [];
+            let right = [];
+
+            while (jobTimes.length > 0) {
+                // Find the minimum processing time on Machine A or B
+                jobTimes.sort((a, b) => Math.min(a.machineA, a.machineB) - Math.min(b.machineA, b.machineB));
+                const minJob = jobTimes[0];
+
+                if (minJob.machineA < minJob.machineB) {
+                    left.push(minJob);
+                } else if (minJob.machineA > minJob.machineB) {
+                    right.unshift(minJob);
+                } else {
+                    // If there is a tie, process the job with the minimum Machine A time first
+                    left.push(minJob);
+                }
+                
+                // Remove the selected job from the list
+                jobTimes = jobTimes.filter(job => job.job !== minJob.job);
+            }
+
+            return left.concat(right);
+        }
+
+        function calculateTimes(sequence) {
+            let timeA = 0;
+            let timeB = 0;
+            let machineAIdleTime = 0;
+            let machineBIdleTime = 0;
+
+            sequence.forEach(job => {
+                timeA += job.machineA;
+                if (timeA > timeB) {
+                    machineBIdleTime += timeA - timeB;
+                    timeB = timeA;
+                }
+                timeB += job.machineB;
+            });
+
+            const totalElapsedTime = timeB;
+            return { totalElapsedTime, machineAIdleTime, machineBIdleTime };
+        }
+
+        function displayResult(sequence, totalElapsedTime, machineAIdleTime, machineBIdleTime, machineAEfficiency, machineBEfficiency) {
+            const resultContainer = document.getElementById('result');
+            resultContainer.innerHTML = '<h3>Scheduled Jobs:</h3>';
+            sequence.forEach((job, index) => {
+                resultContainer.innerHTML += `<p>Step ${index + 1}: Job ${job.job}</p>`;
+            });
+            resultContainer.innerHTML += `<h3>Total Elapsed Time: ${totalElapsedTime} minutes</h3>`;
+            resultContainer.innerHTML += `<p>Idle Time on Machine A: ${machineAIdleTime} minutes</p>`;
+            resultContainer.innerHTML += `<p>Idle Time on Machine B: ${machineBIdleTime} minutes</p>`;
+            resultContainer.innerHTML += `<h3>Machine Efficiencies:</h3>`;
+            resultContainer.innerHTML += `<p>Efficiency of Machine A: ${machineAEfficiency}%</p>`;
+            resultContainer.innerHTML += `<p>Efficiency of Machine B: ${machineBEfficiency}%</p>`;
+        }
+    </script>
+</head>
+<body>
+    <h1>Job Scheduling Input Form</h1>
+    <form onsubmit="handleFormSubmit(event)">
+        <label for="numFields">Number of Jobs:</label>
+        <input type="number" id="numFields" min="1" required>
+        <button type="button" onclick="generateTable()">Generate Table</button>
+        <div id="tableContainer"></div>
+        <button type="submit" id="submitButton" style="display:none;">Submit</button>
+    </form>
+    <div id="result" class="result"></div>
+</body>
+</html>
